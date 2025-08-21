@@ -37,3 +37,37 @@ def numerical_gradient(f, x):
         it.iternext()   
         
     return grad
+
+
+import numpy as np
+from numba import njit, prange
+
+@njit(parallel=True)  # 开启并行编译
+def numerical_gradient_parallel(f, x):
+    h = 1e-4
+    grad = np.zeros_like(x)
+    x_flat = x.ravel()  # 展平为1D数组，方便并行迭代
+    grad_flat = grad.ravel()
+    n = x_flat.size
+
+    # 并行遍历所有元素（prange自动分配到多个线程）
+    for i in prange(n):
+        # 还原多维索引
+        multi_idx = np.unravel_index(i, x.shape)
+        tmp_val = x[multi_idx]
+
+        # 计算f(x+h)
+        x[multi_idx] = tmp_val + h
+        fxh1 = f(x)
+
+        # 计算f(x-h)
+        x[multi_idx] = tmp_val - h
+        fxh2 = f(x)
+
+        # 存储梯度
+        grad_flat[i] = (fxh1 - fxh2) / (2 * h)
+
+        # 还原值
+        x[multi_idx] = tmp_val
+
+    return grad.reshape(x.shape)  # 恢复原形状
